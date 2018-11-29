@@ -20,6 +20,7 @@ uri=$(jq -r '.source.uri // ""' < $payload)
 exclude_branches=$(jq -r '.source.exclude // ""' < $payload)
 branch_filter=$(jq -r '.source.branches // [] | join(" ")' < $payload)
 git_config_payload=$(jq -r '.source.git_config // []' < $payload)
+skip_ci_enabled=$(jq -r '.source.enable_ci_skip // false' < $payload)
 
 previous_branches="$(jq -r '.version.branches // ""' < $payload)"
 
@@ -40,6 +41,13 @@ echo "$current_heads" |
   while read branch ref; do
     if [ -z "$branch" ]; then
       continue
+    fi
+
+    if [ "$skip_ci_enabled" == "true" ]; then
+        ref_msg=`git log --format=%B -1 $ref`
+        if [[ "$ref_msg" =~ "[ci skip]" ]] || [[ "$ref_msg" =~ "[skip ci]" ]]; then
+            continue
+        fi
     fi
 
     prev_ref=$(jq -r '.version | .[$branch]' --arg branch "$branch" < $payload)

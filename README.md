@@ -29,6 +29,7 @@ following property:
   all branches are tracked.
 * `exclude`: *Optional* A Regex for branches to be excluded. If not specified,
   no branches are excluded.
+* `enable_ci_skip`: *Optional.* Enable skipping commits with "[ci skip]" or "[skip ci]" tag. This may have an impact on check performance.
 
 The `branch` configuration from the original resource is ignored for `check`.
 
