@@ -26,6 +26,18 @@ previous_branches="$(jq -r '.version.branches // ""' < $payload)"
 
 configure_git_global "${git_config_payload}"
 
+# Clone repo to make commit log available
+if [ "$skip_ci_enabled" == "true" ]; then
+    REPO=$TMPDIR/git-branch-heads-resource-repo-cache
+    if [ -d $REPO ]; then
+        cd $REPO
+        git fetch
+    else
+        git clone --bare "$uri" $REPO
+        cd $REPO
+    fi
+fi
+
 e_point=!
 current_heads=$(git ls-remote -h "$uri" $branch_filter | sed 's/refs\/heads\///' | awk '{print $2, $1}' | awk "\$1 $e_point~ \"^($exclude_branches)$\"" | sort -V)
 
