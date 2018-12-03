@@ -44,7 +44,7 @@ echo "$current_heads" |
     fi
 
     if [ "$skip_ci_enabled" == "true" ]; then
-        ref_msg=`git log --format=%B -1 $ref`
+        ref_msg=$(git log --format=%s -1 $ref)
         if [[ "$ref_msg" =~ "[ci skip]" ]] || [[ "$ref_msg" =~ "[skip ci]" ]]; then
             continue
         fi
