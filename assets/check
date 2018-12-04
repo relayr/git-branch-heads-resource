@@ -20,14 +20,24 @@ uri=$(jq -r '.source.uri // ""' < $payload)
 exclude_branches=$(jq -r '.source.exclude // ""' < $payload)
 branch_filter=$(jq -r '.source.branches // [] | join(" ")' < $payload)
 git_config_payload=$(jq -r '.source.git_config // []' < $payload)
+skip_ci_enabled=$(jq -r '.source.enable_ci_skip // false' < $payload)
 
 previous_branches="$(jq -r '.version.branches // ""' < $payload)"
 
 configure_git_global "${git_config_payload}"
 
+# Clone repo to make commit log available
+if [ "$skip_ci_enabled" == "true" ]; then
+    REPO=$TMPDIR/git-branch-heads-resource-repo-cache
+    if [ ! -d $REPO ]; then
+        git clone --bare "$uri" $REPO
+    fi
+fi
+
 e_point=!
 current_heads=$(git ls-remote -h "$uri" $branch_filter | sed 's/refs\/heads\///' | awk '{print $2, $1}' | awk "\$1 $e_point~ \"^($exclude_branches)$\"" | sort -V)
 
+# this map will always list the most recent refs, even if they are skipped
 current_heads_map=$(
   jq -n '
     $heads | rtrimstr("\n") | split("\n") |
@@ -43,9 +53,34 @@ echo "$current_heads" |
     fi
 
     prev_ref=$(jq -r '.version | .[$branch]' --arg branch "$branch" < $payload)
-    if [ "$ref" != "$prev_ref" ]; then
-      echo "$branch"
+
+    if [ "$ref" == "$prev_ref" ]; then
+        continue;
+    else
+        if [ "$skip_ci_enabled" == "true" ]; then
+            # update branch refs
+            git -C $REPO fetch "$uri" "$branch"
+
+            # check all refs since $prev_ref to find one that should not be skipped
+            last_unskipped_ref=$(
+                git -C $REPO log --format="%H %s" ${prev_ref}..${ref} |
+                    while read i_ref msg; do
+                        if [[ "$msg" =~ "[ci skip]" ]] || [[ "$msg" =~ "[skip ci]" ]]; then
+                            continue
+                        else
+                            echo "$i_ref"
+                            break
+                        fi
+                    done)
+
+            if [ ! -z "$last_unskipped_ref" ]; then
+                echo "$branch"
+            fi
+        else
+            echo "$branch"
+        fi
     fi
+
   done |
   jq -R . |
   jq -s 'map({changed: .} + $branches)' \
