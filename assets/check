@@ -62,8 +62,13 @@ echo "$current_heads" |
             git -C $REPO fetch "$uri" "$branch"
 
             # check all refs since $prev_ref to find one that should not be skipped
+            if [ "$prev_ref" == "null" ]; then
+                refs_to_check="-1 $ref"
+            else
+                refs_to_check="${prev_ref}..${ref}"
+            fi
             last_unskipped_ref=$(
-                git -C $REPO log --format="%H %s" ${prev_ref}..${ref} |
+                git -C $REPO log --format="%H %s" $refs_to_check |
                     while read i_ref msg; do
                         if [[ "$msg" =~ "[ci skip]" ]] || [[ "$msg" =~ "[skip ci]" ]]; then
                             continue
