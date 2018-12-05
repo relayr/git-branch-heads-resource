@@ -62,6 +62,7 @@ echo "$current_heads" |
             git -C $REPO fetch "$uri" "$branch"
 
             # check all refs since $prev_ref to find one that should not be skipped
+            # if a branch is new ($prev_ref == null), check only the last commit
             if [ "$prev_ref" == "null" ]; then
                 refs_to_check="-1 $ref"
             else
